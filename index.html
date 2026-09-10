@@ -42,9 +42,7 @@
         </div>
         <time id="todayDate">2026.09.10</time>
       </div>
-
       <div id="lessonCards" class="card-stack"></div>
-
       <article class="memo-card">
         <div class="card-label"><span>✎</span> 추가 메모</div>
         <p id="memoText"></p>
@@ -52,27 +50,22 @@
     </section>
 
     <section id="notes" class="panel">
-      <div class="section-heading">
-        <div><span class="section-kicker">NOTES</span><h2>학습 노트</h2></div>
-      </div>
+      <div class="section-heading"><div><span class="section-kicker">NOTES</span><h2>학습 노트</h2></div></div>
       <div id="notesList" class="notes-list"></div>
     </section>
 
     <section id="review" class="panel">
-      <div class="section-heading">
-        <div><span class="section-kicker">REVIEW</span><h2>복습 큐</h2></div>
-      </div>
+      <div class="section-heading"><div><span class="section-kicker">REVIEW</span><h2>복습 큐</h2></div></div>
       <div id="reviewList" class="review-list"></div>
     </section>
 
     <button id="installBtn" class="install-button" hidden>홈 화면에 앱으로 설치</button>
-
     <footer>
       <span>Small practice, every day.</span>
-      <span id="syncStatus">Local demo · Google Sheet 연동 준비</span>
+      <span id="syncStatus">ChatGPT 기록 시 Sheet + Dashboard 동시 갱신</span>
     </footer>
   </main>
-
+  <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
