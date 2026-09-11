@@ -1,6 +1,60 @@
-const lessons=window.TRILINGUAL_DATA;
-const lessonCards=document.querySelector('#lessonCards'),memo=document.querySelector('#memoText'),date=document.querySelector('#todayDate');let current='english';
-function vocabHtml(rows=[]){if(!rows.length)return'';return`<section class="vocab-section"><div class="section-heading vocab-heading"><div><span class="section-kicker">VOCABULARY</span><h2>오늘의 표현 정리</h2></div></div><div class="vocab-table">${rows.map(v=>`<article class="vocab-row"><div class="vocab-word">${v.word}</div><div class="vocab-meaning"><strong>뜻 · 문맥</strong><span>${v.meaning}</span></div><div><strong>용례 · Collocation</strong><span>${v.usage}</span></div><div><strong>반대 · 대비</strong><span>${v.opposite}</span></div></article>`).join('')}</div></section>`}
-function render(){const d=lessons[current];date.textContent=d.date;lessonCards.innerHTML=d.cards.map(c=>`<article class="lesson-card ${c.type}"><div class="card-label"><span>${c.icon}</span>${c.label}</div><h3>${c.title}</h3><p>${c.text}</p><p class="sub">${c.sub}</p></article>`).join('')+vocabHtml(d.vocab);memo.textContent=d.memo;document.querySelector('#notesList').innerHTML=d.cards.map(c=>`<article class="note-item"><strong>${c.label}</strong><span>${c.title}<br>${c.text}</span></article>`).join('');document.querySelector('#reviewList').innerHTML=(d.vocab||[]).slice(0,5).map((v,i)=>`<article class="review-item"><div><strong>${v.word}</strong><span>${i<2?'오늘 저녁 문장 만들기':'뜻 + 용례 + 반대 표현 복습'}</span></div><span class="review-badge">복습</span></article>`).join('')}
-document.querySelectorAll('.lang-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.lang-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');current=b.dataset.lang;render()});document.querySelectorAll('.section-tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.section-tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active-panel'));b.classList.add('active');document.querySelector('#'+b.dataset.section).classList.add('active-panel')});document.querySelector('#themeBtn').onclick=()=>document.body.classList.toggle('light');
-if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js');let deferredPrompt;const install=document.querySelector('#installBtn');window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;install.hidden=false});install.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;install.hidden=true}};render();
+
+'use strict';
+const lessons=window.TRILINGUAL_DATA||{};
+const history=window.TRILINGUAL_HISTORY||{};
+const $=id=>document.getElementById(id);
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const normalizeDate=v=>{const m=String(v||'').match(/(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})/);return m?m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'):''};
+let current='chinese',session='evening',selectedDate='';
+function records(lang=current){
+ const source=history[lang]||[],headers=source[0]||[];
+ return source.slice(1).filter(r=>normalizeDate(r[0])).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]??''])));
+}
+function dates(){return [...new Set([...records().map(r=>normalizeDate(r['날짜'])),normalizeDate(lessons[current]?.date)].filter(Boolean))].sort().reverse()}
+function dayRows(){return records().filter(r=>normalizeDate(r['날짜'])===selectedDate)}
+function eveningRows(){return dayRows().filter(r=>!String(r['학습 주제']).includes('브리핑'))}
+function chosenVocab(){return normalizeDate(lessons[current]?.date)===selectedDate?lessons[current]?.vocab||[]:[]}
+function feedback(r){return r['발음·전달력 피드백']||r['발음 피드백']||''}
+function words(r){return r['핵심 표현·단어']||r['고급·시사 어휘']||''}
+function field(title,text){return text?'<div class="record-field"><strong>'+esc(title)+'</strong><p>'+esc(text)+'</p></div>':''}
+function vocabHtml(rows=[]){
+ return rows.length?'<div class="table-scroll" role="region" aria-label="단어와 용례 표" tabindex="0"><table class="study-table"><thead><tr><th>단어·표현</th><th>뜻·문맥</th><th>용례·조합</th><th>반대·대비 표현</th></tr></thead><tbody>'+rows.map(v=>'<tr><th scope="row">'+esc(v.word)+'</th><td>'+esc(v.meaning)+'</td><td>'+esc(v.usage)+'</td><td>'+esc(v.opposite)+'</td></tr>').join('')+'</tbody></table></div>':'';
+}
+function recordHtml(r,i){return '<details class="record-card"'+(i===0?' open':'')+'><summary><span>'+String(i+1).padStart(2,'0')+'</span> '+esc(r['학습 주제'])+'</summary><div class="record-body">'+field('한국어 문제',r['한국어 문제'])+field('회화 패턴',r['회화 패턴'])+field('예문',r['예문'])+field('내 답변 원문',r['내 발화'])+field('교정 문장',r['교정 문장'])+field('단어·표현',words(r))+field('피드백·수정 이유',feedback(r))+field('복습',String(r['복습 상태']||'')+' · '+String(r['복습일']||''))+field('메모',r['메모'])+'</div></details>'}
+function correctionTable(rows){
+ return rows.length?'<p class="subtle">총 '+rows.length+'개 기록 · 표를 좌우로 밀어 전체 내용을 확인하세요.</p><div class="table-scroll" tabindex="0" role="region" aria-label="날짜별 발화와 교정 표"><table class="study-table correction-table"><thead><tr>'+['주제·문제','내 답변 원문','교정 문장','단어·표현','수정 이유·피드백'].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><th scope="row">'+esc(r['학습 주제'])+field('문제',r['한국어 문제']||r['회화 패턴'])+'</th><td>'+esc(r['내 발화'])+'</td><td>'+esc(r['교정 문장']||r['예문'])+'</td><td>'+esc(words(r))+'</td><td>'+esc(feedback(r))+'</td></tr>').join('')+'</tbody></table></div>':'<p class="empty-state">이 날짜에 저장된 저녁 학습 기록이 없습니다.</p>';
+}
+function render(){
+ const available=dates();if(!available.includes(selectedDate))selectedDate=available[0]||'';
+ $('studyDate').innerHTML=available.map(d=>'<option value="'+d+'"'+(d===selectedDate?' selected':'')+'>'+d+'</option>').join('');
+ document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===current));
+ document.querySelectorAll('[data-session]').forEach(b=>{b.classList.toggle('active',b.dataset.session===session);b.setAttribute('aria-pressed',String(b.dataset.session===session))});
+ $('todayDate').textContent=selectedDate;
+ const rows=eveningRows(),d=lessons[current]||{};
+ $('todayTitle').textContent=session==='evening'?'저녁 학습 기록':'오전 어휘 정리';
+ if(session==='morning'){
+  $('lessonCards').innerHTML=normalizeDate(d.date)===selectedDate?(d.cards||[]).map(c=>'<article class="lesson-card '+esc(c.type)+'"><div class="card-label">'+esc(c.label)+'</div><h3>'+esc(c.title)+'</h3><p>'+esc(c.text)+'</p><p class="sub">'+esc(c.sub)+'</p></article>').join('')+vocabHtml(chosenVocab()):'<p class="empty-state">이 날짜에 저장된 오전 어휘가 없습니다.</p>';
+  $('memoText').textContent=normalizeDate(d.date)===selectedDate?d.memo||'':'';
+ }else{
+  $('lessonCards').innerHTML=rows.length?'<p class="subtle">'+rows.filter(r=>r['내 발화']).length+'개 답변 · '+rows.length+'개 기록</p>'+rows.map(recordHtml).join(''):'<p class="empty-state">이 날짜에 저장된 저녁 학습 기록이 없습니다.</p>';
+  $('memoText').textContent=rows.length?'문장별 제목을 누르면 문제, 내 답변, 교정 문장과 수정 이유를 펼쳐볼 수 있습니다. 전체 비교는 교정 표에서 확인하세요.':'수업 후 기록을 저장하면 이 날짜에 표시됩니다.';
+ }
+ $('notesList').innerHTML=correctionTable(rows);
+ $('reviewList').innerHTML=rows.length?rows.map((r,i)=>'<article class="note-item">'+field(String(i+1)+'. '+r['학습 주제'],words(r))+field('복습 문장',r['교정 문장']||r['예문'])+field('상태·일정',String(r['복습 상태']||'')+' · '+String(r['복습일']||''))+field('메모',r['메모'])+'</article>').join(''):vocabHtml(chosenVocab());
+ $('syncStatus').textContent=(window.TRILINGUAL_SAVED_DATE||'')+' 저장본 · 새로고침으로 최신 저장 기록 확인';
+}
+document.querySelectorAll('.lang-btn').forEach(b=>b.onclick=()=>{current=b.dataset.lang;render()});
+document.querySelectorAll('[data-session]').forEach(b=>b.onclick=()=>{session=b.dataset.session;render()});
+$('studyDate').onchange=e=>{selectedDate=e.target.value;render()};
+document.querySelectorAll('.section-tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.section-tab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active-panel',x.id===b.dataset.section))});
+$('themeBtn').onclick=()=>document.body.classList.toggle('light');
+$('refreshBtn').onclick=()=>location.reload();
+if('serviceWorker' in navigator){
+ let refreshing=false;
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!refreshing){refreshing=true;location.reload()}});
+ navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+}
+let deferredPrompt;const install=$('installBtn');
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;install.hidden=false});
+install.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;install.hidden=true}};
+render();
