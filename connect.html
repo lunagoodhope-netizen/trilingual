@@ -1,0 +1,39 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>트리링구얼 시트 연결</title><link rel="stylesheet" href="styles.css?v=20260911-sync5"><main class="app-shell"><h1>시트 자동 연결</h1><p>Google 계정에서 최초 1회 설정하면, 앱을 보는 동안 20초마다 중국어·영어 탭을 읽습니다. 네트워크 상황에 따라 반영이 늦어질 수 있습니다.</p><ol style="line-height:1.9;padding-left:24px"><li><a href="https://docs.google.com/spreadsheets/d/1nq5g5YUJQkATZP6Q6UnjKA8mjPHOf9hDEaiHPY3dS0g/edit">트리링구얼 시트</a>에서 <b>확장 프로그램 → Apps Script</b>를 엽니다.</li><li>새 프로젝트의 Code.gs에 아래 코드를 붙여 넣고 저장합니다. 기존 코드가 있으면 새 스크립트 파일에 추가하세요.</li><li>상단 함수에서 <b>setupConnection</b>을 선택해 실행하고 Google 권한을 승인합니다. 실행 로그의 <b>개인 연결 키</b>를 복사합니다.</li><li><b>배포 → 새 배포 → 웹 앱</b>에서 실행 사용자는 <b>나</b>, 액세스 권한은 <b>모든 사용자</b>로 설정하고 배포합니다.</li><li>발급된 <b>/exec로 끝나는 웹 앱 URL</b>을 복사합니다. <a href="./?v=20260911-sync5">학습 앱</a> 하단의 <b>시트 연결 설정</b>에 URL과 키를 입력합니다.</li></ol><p>시트 자체의 공유 권한은 그대로 유지됩니다. 연결 주소와 키를 함께 아는 사람은 중국어·영어 학습 기록을 읽을 수 있으므로 키를 공개하거나 대화에 붙이지 마세요. 키는 이 기기에만 저장되며, 새 기기에는 다시 입력합니다.</p><p>연결 후 시트의 메모 한 칸을 수정해 앱에 반영되는지 확인하세요. 성공 전에는 ‘시트 연결 전’ 또는 ‘연결 실패’로 표시됩니다.</p><button id="copy" class="install-button">연결 코드 복사</button><p id="copyStatus" role="status"></p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface);padding:16px;font-size:13px"><code id="code">/** 트리링구얼 전용 읽기 연결. Google Sheets 공유 권한은 변경하지 않습니다. */
+const TRILINGUAL_SHEET_ID = &#x27;1nq5g5YUJQkATZP6Q6UnjKA8mjPHOf9hDEaiHPY3dS0g&#x27;;
+
+function setupConnection() {
+  const props = PropertiesService.getScriptProperties();
+  let key = props.getProperty(&#x27;TRILINGUAL_READ_KEY&#x27;);
+  if (!key) {
+    key = Utilities.getUuid().replace(/-/g, &#x27;&#x27;) + Utilities.getUuid().replace(/-/g, &#x27;&#x27;);
+    props.setProperty(&#x27;TRILINGUAL_READ_KEY&#x27;, key);
+  }
+  SpreadsheetApp.openById(TRILINGUAL_SHEET_ID).getSheets();
+  console.log(&#x27;개인 연결 키 (웹앱의 시트 연결에 입력): &#x27; + key);
+}
+
+function doGet() {
+  return ContentService.createTextOutput(&#x27;Trilingual read-only connection. POST with a valid key is required.&#x27;);
+}
+
+function doPost(e) {
+  let result;
+  try {
+    const input = JSON.parse(e.postData.contents);
+    const key = PropertiesService.getScriptProperties().getProperty(&#x27;TRILINGUAL_READ_KEY&#x27;);
+    if (!key || typeof input.key !== &#x27;string&#x27; || input.key !== key) {
+      result = {ok: false, error: &#x27;UNAUTHORIZED&#x27;};
+    } else {
+      const ss = SpreadsheetApp.openById(TRILINGUAL_SHEET_ID);
+      const read = (name, width) =&gt; {
+        const sheet = ss.getSheetByName(name);
+        if (!sheet) throw new Error(&#x27;MISSING_TAB&#x27;);
+        const values = sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), width).getDisplayValues();
+        return values.filter((row, index) =&gt; index === 0 || row.some(value =&gt; value !== &#x27;&#x27;));
+      };
+      result = {ok: true, spreadsheetId: TRILINGUAL_SHEET_ID, fetchedAt: new Date().toISOString(), history: {chinese: read(&#x27;중국어&#x27;, 10), english: read(&#x27;영어&#x27;, 11)}};
+    }
+  } catch (error) { result = {ok: false, error: &#x27;READ_FAILED&#x27;}; }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+</code></pre><p><a href="./?v=20260911-sync5">학습 앱으로 돌아가기</a> · <a href="https://developers.google.com/apps-script/guides/web">Google 웹 앱 배포 안내</a></p></main><script>document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(document.getElementById('code').textContent);document.getElementById('copyStatus').textContent='복사했습니다.'}catch{document.getElementById('copyStatus').textContent='아래 코드를 직접 선택해서 복사해 주세요.'}};</script></html>

@@ -20,3 +20,5 @@ button,select{font-size:14px}button:focus-visible,select:focus-visible,summary:f
 .lesson-card p,.memo-card p{font-size:16px}.card-label,.note-item span,.review-item span{font-size:14px}.section-heading time{font-size:14px}
 body.light .app-shell{background:#f4f7fb}body.light .note-item{color:var(--text)}
 @media(min-width:700px){.app-shell{width:min(100% - 40px,1000px);padding:28px}.card-stack{grid-template-columns:minmax(0,1fr)}}
+
+.connection-settings{margin-top:24px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);line-height:1.7}.connection-settings summary{cursor:pointer}.connection-settings a{color:var(--blue)}.connection-settings form{display:grid;gap:10px;margin-top:16px}.connection-settings input,.connection-settings button{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--text);font:inherit;min-width:0;width:100%}.connection-settings p{font-size:14px;color:var(--muted)}

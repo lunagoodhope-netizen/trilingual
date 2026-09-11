@@ -1,7 +1,7 @@
 
 'use strict';
 const lessons=window.TRILINGUAL_DATA||{};
-const history=window.TRILINGUAL_HISTORY||{};
+let history=window.TRILINGUAL_HISTORY||{};
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normalizeDate=v=>{const m=String(v||'').match(/(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})/);return m?m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'):''};
@@ -33,15 +33,16 @@ function render(){
  const rows=eveningRows(),d=lessons[current]||{};
  $('todayTitle').textContent=session==='evening'?'저녁 학습 기록':'오전 어휘 정리';
  if(session==='morning'){
-  $('lessonCards').innerHTML=normalizeDate(d.date)===selectedDate?(d.cards||[]).map(c=>'<article class="lesson-card '+esc(c.type)+'"><div class="card-label">'+esc(c.label)+'</div><h3>'+esc(c.title)+'</h3><p>'+esc(c.text)+'</p><p class="sub">'+esc(c.sub)+'</p></article>').join('')+vocabHtml(chosenVocab()):'<p class="empty-state">이 날짜에 저장된 오전 어휘가 없습니다.</p>';
-  $('memoText').textContent=normalizeDate(d.date)===selectedDate?d.memo||'':'';
+  const morning=dayRows().filter(r=>String(r['학습 주제']).includes('브리핑'));
+  $('lessonCards').innerHTML=morning.length?morning.map(recordHtml).join(''):(normalizeDate(d.date)===selectedDate?vocabHtml(chosenVocab()):'<p class="empty-state">이 날짜에 저장된 오전 어휘가 없습니다.</p>');
+  $('memoText').textContent=morning.length?'시트에 기록된 오전 어휘와 학습 내용을 표시합니다.':d.memo||'';
  }else{
   $('lessonCards').innerHTML=rows.length?'<p class="subtle">'+rows.filter(r=>r['내 발화']).length+'개 답변 · '+rows.length+'개 기록</p>'+rows.map(recordHtml).join(''):'<p class="empty-state">이 날짜에 저장된 저녁 학습 기록이 없습니다.</p>';
   $('memoText').textContent=rows.length?'문장별 제목을 누르면 문제, 내 답변, 교정 문장과 수정 이유를 펼쳐볼 수 있습니다. 전체 비교는 교정 표에서 확인하세요.':'수업 후 기록을 저장하면 이 날짜에 표시됩니다.';
  }
  $('notesList').innerHTML=correctionTable(rows);
  $('reviewList').innerHTML=rows.length?rows.map((r,i)=>'<article class="note-item">'+field(String(i+1)+'. '+r['학습 주제'],words(r))+field('복습 문장',r['교정 문장']||r['예문'])+field('상태·일정',String(r['복습 상태']||'')+' · '+String(r['복습일']||''))+field('메모',r['메모'])+'</article>').join(''):vocabHtml(chosenVocab());
- $('syncStatus').textContent=(window.TRILINGUAL_SAVED_DATE||'')+' 저장본 · 새로고침으로 최신 저장 기록 확인';
+ $('syncStatus').textContent=window.trilingualSyncLabel||'시트 연결 전 · 저장된 기록 표시 중';
 }
 document.querySelectorAll('.lang-btn').forEach(b=>b.onclick=()=>{current=b.dataset.lang;render()});
 document.querySelectorAll('[data-session]').forEach(b=>b.onclick=()=>{session=b.dataset.session;render()});
@@ -58,3 +59,11 @@ let deferredPrompt;const install=$('installBtn');
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;install.hidden=false});
 install.onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;install.hidden=true}};
 render();
+
+window.addEventListener('trilingual-sheet-update', e=>{
+ const opened=[...document.querySelectorAll('.record-card')].map(x=>x.open);
+ const scroll=window.scrollY;
+ history=e.detail;render();
+ document.querySelectorAll('.record-card').forEach((x,i)=>{if(i<opened.length)x.open=opened[i]});
+ window.scrollTo(0,scroll);
+});
